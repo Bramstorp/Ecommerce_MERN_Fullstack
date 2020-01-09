@@ -1,0 +1,44 @@
+const User = require("../models/user") 
+const braintree = require("braintree")
+require("dotenv").config()
+
+//this is the gateway used to we can use the braintree for payment in the webshop set in the .env file
+const gateway = braintree.connect({
+    environment: braintree.Environment.Sandbox,
+    merchantId: process.env.BRAINTREE_MERCHANT_ID,
+    publicKey: process.env.BRAINTREE_PUBLIC_KEY,
+    privateKey: process.env.BRAINTREE_PRIVATE_KEY
+})
+
+//this will generate a token used kinda like a receipt
+exports.generateToken = (req, res) => {
+    gateway.clientToken.generate({}, function(err, response) {
+        if (err) {
+            res.status(500).send(err)
+        } else {
+            res.send(response)
+        }
+    })
+}
+
+//this will take everything set everything from the client side (the amount, the way the user pay)
+exports.processPayment = (req, res) => {
+    let nonceFromTheClient = req.body.paymentMethodNonce
+    let amountFromTheClient = req.body.amount
+    let newTransaction = gateway.transaction.sale(
+        {
+            amount: amountFromTheClient,
+            paymentMethodNonce: nonceFromTheClient,
+            options: {
+                submitForSettlement: true
+            }
+        },
+        (error, result) => {
+            if (error) {
+                res.status(500).json(error)
+            } else {
+                res.json(result)
+            }
+        }
+    )
+}
